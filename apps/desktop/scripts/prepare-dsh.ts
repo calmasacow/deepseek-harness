@@ -33,6 +33,7 @@ import {
   signMacOSRuntime,
 } from './macos-runtime.ts'
 import { desktopTargetPlatform, resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
+import { installElectronSafeSharp, fixLibreOfficeEngineFallback } from './linux-runtime-adjustments.ts'
 import { desktopRuntimeFileExclusion } from './runtime-file-policy.ts'
 import { selectOfficeEngine } from '../../../scripts/libreoffice-packages.mjs'
 
@@ -44,7 +45,10 @@ const STORE_ROOT = BUILD_PATHS.pnpmStore
 const RUNTIME_ROOT = BUILD_PATHS.runtime
 const PNPM_BUILD_STATE = BUILD_PATHS.dshPnpm
 const PACKAGE_SET_ROOT = BUILD_PATHS.packageSet
-const NODE = join(BUILD_PATHS.electron, process.platform === 'win32' ? 'electron.exe' : 'Electron.app/Contents/MacOS/Electron')
+const NODE = join(BUILD_PATHS.electron, (() => {
+  const platform = desktopTargetPlatform(resolveDesktopBuildTarget()).platform
+  return platform === 'win32' ? 'electron.exe' : platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : 'electron'
+})())
 const PNPM = join(RUNTIME_ROOT, 'primary-runtime', 'dependencies', 'pnpm', 'bin', 'pnpm.mjs')
 
 function manifestVersion(path: string, subject: string): string {
@@ -155,6 +159,15 @@ async function main(): Promise<void> {
       name: '@deepseek-ai/dsh-desktop-runtime', private: true, version: release.version, type: 'module',
       dependencies: Object.fromEntries(packageSet.packages.map(entry => [entry.name, entry.version])),
     }, undefined, 2)}\n`)
+    // Electron's Linux binary collides with the glib that the registry sharp embeds: electron/electron#46323.
+    // The same ASAR filesystem also defeats the LibreOfficeKit native-engine probe, which
+    // must fail here for Linux to fall back to the bundled WASM engine.
+    if (target.platform === 'linux') {
+      await packagingStep(process.env.DSH_DESKTOP_PACKAGING_RUN_DIR, 'runtime:linux-adjustments', async () => {
+        await installElectronSafeSharp(DSH_OUTPUT_ROOT, BUILD_PATHS.downloads, resolveDesktopBuildTarget())
+        fixLibreOfficeEngineFallback(DSH_OUTPUT_ROOT)
+      })
+    }
     for (const file of DESKTOP_HOST_RUNTIME_FILES) {
       if (!existsSync(join(DSH_OUTPUT_ROOT, 'node_modules', DESKTOP_HOST_PACKAGE, file))) {
         throw new Error(`desktop runtime: missing private Host file ${file}`)

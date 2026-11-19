@@ -20,6 +20,8 @@ export type DesktopPurgeClient = Pick<InstanceType<typeof teo.v20220901.Client>,
 export function resolveDesktopPurgeConfig(
   env: NodeJS.ProcessEnv, target: DesktopPackageTargetName, publicUrl?: string,
 ): DesktopPurgeConfig {
+  // Only signed macOS and Windows installers reach the production download origin.
+  if (target === 'linux-x64') throw new DesktopPurgeError('desktop purge: Linux builds are not published')
   if (resolveDesktopAutoUpdateEnvironment(env) !== 'production') throw new DesktopPurgeError('desktop purge: production is required')
   const { platform, arch } = desktopTargetPlatform(target)
   const update = resolveDesktopUploadConfig(env, platform, arch)

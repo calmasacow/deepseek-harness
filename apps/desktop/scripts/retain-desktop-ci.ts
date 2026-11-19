@@ -25,6 +25,8 @@ function required(env: NodeJS.ProcessEnv, name: string): string {
  */
 export function resolveDesktopRetentionRunner(env: NodeJS.ProcessEnv): string {
   const target = resolveDesktopBuildTarget(env)
+  // Retention carries a signed macOS or Windows installer; the routing map names neither for Linux.
+  if (target === 'linux-x64') throw new Error('desktop retention: Linux builds are not retained for publication')
   const routes = desktopPublishRunnersSchema.parse(JSON.parse(required(env, 'DESKTOP_PUBLISH_RUNNERS')))
   const route = routes[required(env, 'RUNNER_NAME')]
   if (!route || !route.target.includes(target)
@@ -42,6 +44,8 @@ export function resolveDesktopRetentionRunner(env: NodeJS.ProcessEnv): string {
  */
 export async function retainDesktopCi(env: NodeJS.ProcessEnv, appRoot = resolve(import.meta.dirname, '..')): Promise<string> {
   const target = resolveDesktopBuildTarget(env)
+  // Retained publication carries a signed macOS or Windows installer; Linux has neither.
+  if (target === 'linux-x64') throw new Error('desktop retention: Linux builds are not retained for publication')
   const runnerLabel = resolveDesktopRetentionRunner(env)
   const windows = target === 'win-x64'
   const platform = windows ? 'win32' : 'darwin'

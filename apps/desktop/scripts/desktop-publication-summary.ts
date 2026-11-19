@@ -4,7 +4,9 @@ import { z } from 'zod'
 import { createHash } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { desktopWebsiteInstallerUrl } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
+import type { DesktopAutoUpdateTarget } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
 import type { DesktopRetainedSource } from '@deepseek-ai/dsh-desktop-publisher/desktop-release-store.ts'
+import type { DesktopPackageTargetName } from './package-target.ts'
 import type { DesktopUploadPlan } from './desktop-upload-plan.ts'
 
 function text(value: string): string {
@@ -14,6 +16,15 @@ function text(value: string): string {
 function code(value: string): string { return `<code>${text(value)}</code>` }
 function row(label: string, value: string): string { return `| ${label} | ${value} |` }
 function link(url: string, label = url): string { return `<a href="${text(url)}">${text(label)}</a>` }
+
+/** Publication covers macOS and Windows only, while the packaging target also names Linux.
+ * @param target Target the verified upload plan was built for.
+ * @returns The same target as one that has a published installer location.
+ */
+function publishableTarget(target: DesktopPackageTargetName): DesktopAutoUpdateTarget {
+  if (target === 'linux-x64') throw new Error('desktop publication: Linux builds have no installer location')
+  return target
+}
 
 /**
  * Render Chinese approval details after package, destination and signature verification succeeds.
@@ -61,7 +72,7 @@ export async function desktopPublicationSummary(
     row('打包来源', `${link(runUrl, `查看打包运行 #${source.runId} · 第 ${source.attempt} 次尝试`)}<br>源码：${code(`${source.sourceRef} @ ${source.commit}`)}<br>打包机器：${code(source.runnerName)}`),
     row('签名与公证', plan.target === 'win-x64' ? 'EXE 签名校验通过' : 'DMG 校验通过<br>ZIP 内应用校验通过'),
     ...(uploadWebsite && plan.environment === 'production' ? [row('官网固定安装包',
-      `${link(desktopWebsiteInstallerUrl(plan.target))}<br>替换为版本 ${code(plan.version)}；已有安装包会被替换，无防降级保护；官网上传与刷新在后续 job 中执行，可能需另行审批。`)] : []),
+      `${link(desktopWebsiteInstallerUrl(publishableTarget(plan.target)))}<br>替换为版本 ${code(plan.version)}；已有安装包会被替换，无防降级保护；官网上传与刷新在后续 job 中执行，可能需另行审批。`)] : []),
     row('Git tag', tag), '', '### 批准后将执行', '',
     '1. 重新校验产物与发布目标；若与审批摘要不一致则停止。',
     '2. 上传缺少的文件，跳过内容一致的已有文件；发现内容冲突则停止。',

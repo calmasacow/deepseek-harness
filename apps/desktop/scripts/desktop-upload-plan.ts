@@ -13,6 +13,7 @@ import {
   desktopUpdateMetadataFilename,
   resolveDesktopUploadConfig,
 } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
+import type { DesktopAutoUpdateTarget } from '@deepseek-ai/dsh-desktop-publisher/desktop-auto-update-environment.mjs'
 import { desktopTargetBuildPaths } from './desktop-build-paths.mjs'
 import { validateDesktopBuildVersion } from './desktop-build-version.mjs'
 
@@ -24,11 +25,20 @@ const TARGETS = {
   'mac-arm64': { platform: 'darwin', arch: 'arm64', os: 'mac' },
   'mac-x64': { platform: 'darwin', arch: 'x64', os: 'mac' },
   'win-x64': { platform: 'win32', arch: 'x64', os: 'win' },
-} as const satisfies Record<DesktopPackageTargetName, {
+} as const satisfies Partial<Record<DesktopPackageTargetName, {
   readonly platform: NodeJS.Platform
   readonly arch: string
   readonly os: string
-}>
+}>>
+
+/**
+ * Narrow a build target to the ones that publish to an update feed.
+ * @param name - Build target selected by the upload command.
+ * @returns Whether the target has a published update directory.
+ */
+function isUploadTarget(name: DesktopPackageTargetName): name is DesktopAutoUpdateTarget {
+  return name !== 'linux-x64'
+}
 
 /** Filesystem and environment inputs used to validate one upload. */
 export interface DesktopUploadPlanOptions {
@@ -159,10 +169,10 @@ export async function createDesktopUploadPlan(
   targetName: DesktopPackageTargetName,
   options: DesktopUploadPlanOptions = {},
 ): Promise<DesktopUploadPlan> {
-  const target = TARGETS[targetName]
-  if (target === undefined) {
+  if (!isUploadTarget(targetName)) {
     throw new Error(`desktop upload: unsupported target ${String(targetName)}`)
   }
+  const target = TARGETS[targetName]
   const environment = options.environment ?? process.env
   const repositoryRoot = options.repositoryRoot ?? REPOSITORY_ROOT
   const appRoot = options.appRoot ?? APP_ROOT

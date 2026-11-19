@@ -261,6 +261,16 @@ function platformLoginUrl(authorizeUrl: string): string {
   return url.href
 }
 
+/**
+ * Resolve the icon file this process draws: the packaged resource beside the
+ * application, or the development artwork from the checkout.
+ * @returns absolute path of the icon PNG.
+ */
+function applicationIconPath(): string {
+  return app.isPackaged ? join(process.resourcesPath, 'icon.png')
+    : join(app.getAppPath(), 'resources', 'icon-windows.png')
+}
+
 function createWindow(preload: string, show = false, primary = false): BrowserWindow {
   const window = new BrowserWindow({
     width: 1280,
@@ -285,6 +295,10 @@ function createWindow(preload: string, show = false, primary = false): BrowserWi
       visualEffectState: 'active' as const,
       backgroundColor: '#00000000',
     } : {}),
+    // X11 window managers read the icon from the window itself, so the taskbar and the
+    // window switcher need it here. Wayland associates the window through its application
+    // id, and macOS and Windows take the icon from the bundle and the executable.
+    ...(process.platform === 'linux' ? { icon: applicationIconPath() } : {}),
     webPreferences: {
       preload,
       nodeIntegration: false,
@@ -783,7 +797,7 @@ async function main(): Promise<void> {
     // A confirmation on a hidden window would go unseen, so it waits for the next show; the mandatory
     // flow keeps its own taskbar and Dock attention instead.
     if (!isMandatory()) await windowShown()
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- A quit can begin while the show is awaited.
+    // A quit can begin while the show is awaited.
     if (quitting) return state
     return updates.install(version, revision)
   }
@@ -1155,15 +1169,13 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
-    : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: 'DeepSeek Harness',
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',
     copyright: '',
-    iconPath: applicationIconPath,
+    iconPath: applicationIconPath(),
   })
   // A custom application menu replaces Electron's default menu, so macOS needs
   // its standard menus and application hide commands declared explicitly.
@@ -1240,8 +1252,11 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
-  if (process.platform === 'win32') {
+  // Linux has no packaged tray bitmap, and its status area takes the application icon as a PNG;
+  // the ICO artwork is a Windows format.
+  const trayIconPath = process.platform === 'linux' ? applicationIconPath()
+    : development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
+  if (process.platform === 'win32' || process.platform === 'linux') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {
       tray = new DesktopTray({ iconPath: trayIconPath, locale: currentDesktopLocale,
