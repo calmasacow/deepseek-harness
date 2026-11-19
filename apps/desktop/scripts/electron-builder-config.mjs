@@ -120,6 +120,8 @@ export function createElectronBuilderConfig(
       ...(policy === undefined ? {} : { dshMandatoryUpdatePolicy: policy }),
       ...buildVersion === productVersion ? {} : { version: buildVersion },
       ...packaged === undefined ? {} : { dshBuildCommit: packaged.commit, dshBuildDirty: packaged.dirty },
+      // deb, rpm, and pacman require a project URL. Linux releases live on this fork.
+      ...(resolvedPlatform === 'linux' ? { homepage: 'https://github.com/calmasacow/deepseek-harness' } : {}),
     },
     productName: 'DeepSeek Harness',
     // The default copyright uses author.name; this line names the product instead.
@@ -267,7 +269,17 @@ export function createElectronBuilderConfig(
       category: 'Development',
       icon: fileURLToPath(new URL('../resources/icon.png', import.meta.url)),
       executableName: 'deepseek-harness',
-      target: ['AppImage'],
+      maintainer: 'calmasacow <calmasacow@gmail.com>',
+      synopsis: 'Desktop shell for the DeepSeek Harness agent runtime',
+      target: ['AppImage', 'deb', 'rpm', 'pacman'],
+    },
+    // The shared Linux dependency list is distribution-specific, and the pacman
+    // defaults still name retired Arch packages. These are the names this host installs.
+    pacman: {
+      depends: [
+        'gtk3', 'nss', 'alsa-lib', 'libxss', 'libxtst', 'libnotify', 'libsecret',
+        'xdg-utils', 'at-spi2-core', 'util-linux-libs',
+      ],
     },
     nsis: {
       uninstallDisplayName: '${productName}',
