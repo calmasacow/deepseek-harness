@@ -269,15 +269,17 @@ export function createElectronBuilderConfig(
       category: 'Development',
       icon: fileURLToPath(new URL('../resources/icon.png', import.meta.url)),
       executableName: 'deepseek-harness',
-      // rpm rejects a Name that contains a space. deb already sanitizes this.
-      packageName: 'deepseek-harness',
       maintainer: 'calmasacow <calmasacow@gmail.com>',
       synopsis: 'Desktop shell for the DeepSeek Harness agent runtime',
       target: ['AppImage', 'deb', 'rpm', 'pacman'],
     },
-    // The shared Linux dependency list is distribution-specific, and the pacman
-    // defaults still name retired Arch packages. These are the names this host installs.
+    // rpmbuild rejects a Name that contains a space. The package name belongs on
+    // each fpm target; the shared linux block does not accept packageName.
+    deb: { packageName: 'deepseek-harness' },
+    rpm: { packageName: 'deepseek-harness' },
+    // The pacman defaults still name retired Arch packages. These are the names this host installs.
     pacman: {
+      packageName: 'deepseek-harness',
       depends: [
         'gtk3', 'nss', 'alsa-lib', 'libxss', 'libxtst', 'libnotify', 'libsecret',
         'xdg-utils', 'at-spi2-core', 'util-linux-libs',
