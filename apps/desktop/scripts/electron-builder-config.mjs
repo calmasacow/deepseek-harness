@@ -269,6 +269,8 @@ export function createElectronBuilderConfig(
       category: 'Development',
       icon: fileURLToPath(new URL('../resources/icon.png', import.meta.url)),
       executableName: 'deepseek-harness',
+      // rpm rejects a Name that contains a space. deb already sanitizes this.
+      packageName: 'deepseek-harness',
       maintainer: 'calmasacow <calmasacow@gmail.com>',
       synopsis: 'Desktop shell for the DeepSeek Harness agent runtime',
       target: ['AppImage', 'deb', 'rpm', 'pacman'],
